@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"time"
 	"公链系统开发/第七节课/tools"
 )
 
@@ -25,6 +26,9 @@ type Transaction struct {
 
 	//多个交易输出
 	Output []Output
+
+	//时间戳
+	TimeStamp int64
 
 }
 //序列化
@@ -54,6 +58,8 @@ func NewCoinbase(address string) (*Transaction,error) {
 		},
 		Input: nil,
 	}
+
+	cb.TimeStamp = time.Now().Unix()
 
 	txBytes, err := cb.Serialize()
 	if err != nil {
@@ -117,6 +123,8 @@ func NewTransaction(from string,to string,amount uint,utxos []UTXO,totalAmount u
 		Input: inputs,
 		Output: outputs,
 	}
+
+	tx.TimeStamp = time.Now().Unix()
 
 	serialize, err := tx.Serialize()
 	if err != nil {
