@@ -3,6 +3,7 @@ package block
 import (
 	"bytes"
 	"公链系统开发/第八节课/transaction"
+	"公链系统开发/第八节课/wallet"
 
 	"errors"
 	"fmt"
@@ -16,15 +17,34 @@ type BlockChain struct {
 	//Blocks []*Block
 	DB  *bolt.DB
 	LastHash []byte
+	Wallet *wallet.Wallet
 }
 
 //创建带有创世区块的区块链
 func CreatChain (address string)(*BlockChain,error){
+
+
 	//打开数据库，返回一个打开好的数据库对象，和err
 	db, err := bolt.Open(CHAIN_DB_PATH, 0600, nil)
 	if err !=nil{
 		return nil,err
 	}
+
+	isFirst := false//用来表示是否是第一次执行,如果是true那么代表是第一次执行
+
+
+	//实例化wallet
+	wlt, err := wallet.NewWallet(db)
+	if err != nil {
+		return nil,err
+	}
+
+	addr, err := wlt.NewAddress()
+	if err != nil {
+		return nil,err
+	}
+
+
 	var lastHash []byte
 	//想向数据库db中添加数据,更新包括增加、修改、删除
 	err = db.Update(func(tx *bolt.Tx) error {
@@ -32,13 +52,16 @@ func CreatChain (address string)(*BlockChain,error){
 		// tx.Bucket 在寻找桶
 		bk := tx.Bucket([]byte(BUCKET_BLOCK))
 		if bk == nil{
+
+			isFirst = true
+
 			bk, err := tx.CreateBucket([]byte(BUCKET_BLOCK))
 			if err !=nil{
 				return err
 			}
 			//向bk中添加数据
 			//创建一个coinbase交易
-			err, coinbase := transaction.NewCoinBase(address)
+			err, coinbase := transaction.NewCoinBase(addr)
 			genesis:=CreatGenesis(*coinbase)
 			serialize, err := genesis.Serialize()
 			if err !=nil{
@@ -59,14 +82,16 @@ func CreatChain (address string)(*BlockChain,error){
 		return nil
 	})
 
-	bc:=BlockChain{
-		DB: db,
-		LastHash:lastHash,
+	if isFirst{
+		fmt.Println("生成的地址:"+addr)
 	}
 
 
-
-
+	bc:=BlockChain{
+		DB: db,
+		LastHash:lastHash,
+		Wallet: wlt,
+	}
 	return &bc,err
 }
 

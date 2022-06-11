@@ -3,6 +3,7 @@ package transaction
 import (
 	"bytes"
 	"公链系统开发/第八节课/tools"
+	"公链系统开发/第八节课/wallet"
 
 	"encoding/gob"
 	"time"
@@ -25,6 +26,17 @@ type Transaction struct {
 //创建一个普通的交易
 func NewTransaction(from, to string, amount uint, spendableOutputs []UTXO) (*Transaction, error) {
 
+	to_pubhash, err := wallet.GetPubHash(to)
+
+	if err != nil {
+		return nil, err
+	}
+
+	from_pubhash,err := wallet.GetPubHash(from)
+	if err != nil {
+		return nil,err
+	}
+
 	//要买一个70的东西，先把余额中的每一钱进行累计，找到刚刚好够70的时候就可以了
 	//不需要把所有的余额都用上  10 10 20  30  40
 
@@ -34,7 +46,7 @@ func NewTransaction(from, to string, amount uint, spendableOutputs []UTXO) (*Tra
 	inputs := make([]Input, 0)
 	for _, output := range spendableOutputs {
 		//构建交易输入就要引用交易输出，因为交易输入本质就是之前历史交易中的未消费的交易输出
-		input := NewInput(output.Txid, output.Index, []byte(from))
+		input := NewInput(output.Txid, output.Index,nil,nil)
 		inputs = append(inputs, input)
 	}
 	//2.构建output（交易输出）
@@ -44,15 +56,18 @@ func NewTransaction(from, to string, amount uint, spendableOutputs []UTXO) (*Tra
 	for _, out := range spendableOutputs {
 		spandAmount += out.Value
 		if spandAmount <= amount {
-			output := NewOutputs(out.Value, []byte(to))
+
+			output := NewOutputs(out.Value, to_pubhash)
+
 			outputs = append(outputs, output)
+
 		} else {
 			//spandAmount超出了要转的金额
 			spandAmount -= out.Value
 			needAmount := amount - spandAmount
-			output := NewOutputs(needAmount, []byte(to))
+			output := NewOutputs(needAmount, to_pubhash)
 			outputs = append(outputs, output)
-			backChange := NewOutputs(out.Value-needAmount, []byte(from))
+			backChange := NewOutputs(out.Value-needAmount,from_pubhash)
 			outputs = append(outputs, backChange)
 		}
 
@@ -75,11 +90,14 @@ func NewTransaction(from, to string, amount uint, spendableOutputs []UTXO) (*Tra
 
 //创建一个coinbase交易
 func NewCoinBase(address string) (error, *Transaction) {
+
+	pubHash, err := wallet.GetPubHash(address)
+
 	cb := Transaction{
 		Output: []Output{
 			{
 				Value:        50,
-				ScriptPubkey: []byte(address),
+				ScriptPubkey: pubHash,
 			},
 		},
 		Input: nil,

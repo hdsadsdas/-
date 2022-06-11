@@ -1,6 +1,9 @@
 package transaction
 
-import "bytes"
+import (
+	"bytes"
+	"公链系统开发/第八节课/wallet"
+)
 
 //创建一个交易输出结构体
 
@@ -18,9 +21,15 @@ func NewOutputs(value uint,scriptpubkey []byte)Output{
 
 //判断某个人是否能解开交易输出（判断这笔钱是不是某个人的）
 func(output *Output)IsUnlock(name string)bool{
+
+	pubHash, err := wallet.GetPubHash(name)
+	if err != nil {
+		return false
+	}
+
 	if name ==""{
 		return false
 	}
 
-	return bytes.Compare(output.ScriptPubkey,[]byte(name)) == 0
+	return bytes.Compare(output.ScriptPubkey,pubHash) == 0
 }
